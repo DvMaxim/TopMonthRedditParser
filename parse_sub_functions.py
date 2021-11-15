@@ -144,7 +144,45 @@ def parse_el(el, file_name: str, driver) -> bool:
 
 
 def parse_karma(driver, user_link: str) -> (str, str):
-    pass
+    """Get post karma and comment karma from the user page.
+
+        :param driver: the browser object
+        :type: selenium.webdriver.chrome.webdriver.WebDriver
+        :param user_link: url for current user
+        :type: str
+        :return: (post karma, comment karma) / nothing if we have no such info on the user page
+        :rtype: (str, str) / None
+        """
+    logger = logging.getLogger("parserApp.parse_sub_functions.parse_karma")
+    driver.execute_script(f'''window.open("{user_link}", "_blank");''')
+    driver.switch_to.window(driver.window_handles[1])
+
+    act = ActionChains(driver)
+    el_to_move = driver.find_element(By.ID, "profile--id-card--highlight-tooltip--karma")
+    if el_to_move:
+        while True:
+            act.move_to_element(el_to_move).perform()
+            generated_html = driver.page_source
+            karmas_soup = BeautifulSoup(generated_html, 'html.parser')
+            user_karma = karmas_soup.find('div', class_="_3uK2I0hi3JFTKnMUFHD2Pd")
+            if not user_karma:
+                continue
+            else:
+                break
+    else:
+        logger.error("No karmas info on the page, impossible to continue parsing process.")
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        return None, None
+
+    words_list = user_karma.text.split()
+
+    post_karma, comment_karma = words_list[0], words_list[3]
+
+    driver.close()
+    driver.switch_to.window(driver.window_handles[0])
+
+    return post_karma, comment_karma
 
 
 def parse_post_date(driver, post_link) -> str:
