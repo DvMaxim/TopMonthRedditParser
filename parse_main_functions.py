@@ -67,7 +67,45 @@ def filter_post_list(post_list: list, file_name: str,
 
 
 def beta_parser(url: str, file_name: str) -> None:
-    pass
+    """Test parsing process.
+
+        This is a small version of the parser function where
+        we process a one post. It is useful for developers because
+        they can easily test and debug our parsing process, but, it is
+        significant to say that this function will be never used in the final version of project
+        cause it aims only for testing and improving our parsing algorithms.
+
+        :param url: web-source to parse
+        :type: str
+        :param file_name: name of the result text file with all data about all parsed posts
+        :type: str
+        :return: None
+        :rtype: None
+        """
+
+    logger = logging.getLogger("parserApp.parse_main_functions.beta_parser")
+    logger.debug("Start session with a browser.")
+    options = webdriver.ChromeOptions()
+    # options.headless = True  # this is hide your browser
+    binary_yandex_driver_file = r'D:\Python Projects\RedditParser\yandexdriver.exe'  # path to YandexDriver
+    driver = webdriver.Chrome(binary_yandex_driver_file, options=options)
+    driver.maximize_window()
+
+    try:
+        driver.get(url)
+        initial_posts = driver.find_elements(By.CLASS_NAME, 'Post')
+        logger.debug("Testing a parsing process on the single post element.")
+        if parse_el(initial_posts[0], file_name, driver):
+            logger.debug("Parser has successfully finished.")
+        else:
+            logger.error("Error during the parsing process.")
+
+    except Exception as ex:
+        logger.error("Error during the parsing process: %s" % ex)
+    finally:
+        logger.debug("End session with a browser.")
+        driver.close()
+        driver.quit()
 
 
 def parser(url: str, file_name: str, num_posts: int) -> None:
