@@ -1,3 +1,10 @@
+"""The module for most general functions of the project.
+
+:func get_current_filename: create a filename for a result file
+:func main: run main application's functions.
+"""
+
+
 import time
 import os
 import logging
