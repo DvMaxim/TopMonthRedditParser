@@ -186,7 +186,46 @@ def parse_karma(driver, user_link: str) -> (str, str):
 
 
 def parse_post_date(driver, post_link) -> str:
-    pass
+    """Parse post date from the post page.
+
+        :param driver: the browser object
+        :type: selenium.webdriver.chrome.webdriver.WebDriver
+        :param post_link: url for current post
+        :type: str
+        :return: post date / nothing if we have no post date info on the post page
+        :rtype: str / None
+        """
+    logger = logging.getLogger("parserApp.parse_sub_functions.parse_post_date")
+    driver.execute_script(f'''window.open("{post_link}", "_blank");''')
+    driver.switch_to.window(driver.window_handles[1])
+    act = ActionChains(driver)
+    el_to_move = driver.find_element(By.CLASS_NAME, "_3jOxDPIQ0KaOWpzvSQo-1s")
+
+    if el_to_move:
+        while True:
+            act.move_to_element(el_to_move).perform()
+
+            generated_html = driver.page_source
+
+            post_date_soup = BeautifulSoup(generated_html, 'html.parser')
+
+            post_date = post_date_soup.find('div', {"class": ["_2J_zB4R1FH2EjGMkQjedwc", "u6HtAZu8_LKL721-EnKuR"]})
+            if not post_date:
+                continue
+            else:
+                break
+    else:
+        logger.error("No post date on the page, impossible to continue parsing process.")
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        return None
+
+    post_date = post_date.text.split()
+
+    post_date = post_date[2].replace(',', '') + " " + post_date[1] + " " + post_date[3].replace(',', '')
+    driver.close()
+    driver.switch_to.window(driver.window_handles[0])
+    return post_date
 
 
 def is_user_html_a_warning(user_soup) -> bool:
