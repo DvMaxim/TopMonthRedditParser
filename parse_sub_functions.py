@@ -23,7 +23,8 @@ HOST = 'https://www.reddit.com'
 module_logger = logging.getLogger("parserApp.parse_sub_functions")
 
 
-def parse_el():
+def parse_el(el, file_name: str, driver) -> bool:
+    """Get necessary data about the current user."""
     pass
 
 

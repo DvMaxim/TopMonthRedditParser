@@ -7,7 +7,9 @@
 
 import logging
 from selenium import webdriver
+from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
+from parse_sub_functions import parse_el
 
 
 module_logger = logging.getLogger("parserApp.parse_main_functions")
@@ -16,7 +18,52 @@ module_logger = logging.getLogger("parserApp.parse_main_functions")
 def filter_post_list(post_list: list, file_name: str,
                      driver, corr_len: str, max_posts_count: int,
                      start_index: int = 0) -> (int, list):
-    pass
+    """Filter the list of posts.
+
+        Receive the list of posts and filter it from the start_index position.
+        This position will appear only if didn't reached necessary number of relevant posts
+        (in our case it is always 100) by the first filter process. Moreover current filter process
+        is pretty simple: we just run through the list and parse a single element. If some troubles
+        appear during the parsing process of the post we will just delete it from the posts list.
+        If element is relevant it will remain in our list and the number of correct elements will be increased by one.
+
+        :param post_list: the list of posts that we need to filter
+        :type: list of selenium web-elements
+        :param file_name: name of the result text file with all data about all parsed posts
+        :type: str
+        :param driver: the browser object
+        :type: selenium.webdriver.chrome.webdriver.WebDriver
+        :param corr_len: number of corrects posts
+        :type: int
+        :param max_posts_count: number of posts that we need to parse
+        :type: int
+        :param start_index: index of the first element in the post_list which we begin iterate from
+        :type: int
+        :return: updated number of the correct posts / the filtered list of posts with only relevant one's
+        :rtype: int / list of selenium web-elements
+        """
+    logger = logging.getLogger("parserApp.parse_main_functions.filter_post_list")
+    logger.debug("Start filtering process with current correct posts = %d" % corr_len)
+
+    if start_index:
+        post_list = post_list[start_index:]
+
+    for el in list(post_list):
+        el_index = post_list.index(el)
+        if corr_len < max_posts_count:
+            logger.debug("Try to parse current post element with the %d index in the posts list.\n" % el_index)
+            if not parse_el(post_list[el_index], file_name, driver):
+                post_list.remove(el)
+                logger.debug(
+                    "Element with %d index was removed from the posts list because it was not correct." % el_index)
+            else:
+                corr_len += 1
+                logger.debug(
+                    "Element with %d index in the posts list was parsed successfully." % el_index)
+        else:
+            return corr_len, post_list[:el_index]
+
+    return corr_len, post_list
 
 
 def beta_parser(url: str, file_name: str) -> None:
