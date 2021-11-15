@@ -229,4 +229,23 @@ def parse_post_date(driver, post_link) -> str:
 
 
 def is_user_html_a_warning(user_soup) -> bool:
-    pass
+    """Check if the user html page is correct for parsing process.
+
+        Look thought the page and try to find objects that can be present only on
+        an age warning page or a deleted user warning page.
+
+        :param user_soup: object for parsing user page
+        :type: bs4.BeautifulSoup
+        :return: True signal if we our page is a warning and False signal if it's not
+        :type: boolean
+        """
+    logger = logging.getLogger("parserApp.parse_sub_functions.is_user_html_a_warning")
+    constraint_label = user_soup.find('h3', class_='_2XKLlvmuqdor3RvVbYZfgz')
+    if constraint_label:
+        return True
+    else:
+        constraint_label = user_soup.find('h3', class_='bDDEX4BSkswHAG_45VkFB')
+        if constraint_label:
+            return True
+        else:
+            return False
