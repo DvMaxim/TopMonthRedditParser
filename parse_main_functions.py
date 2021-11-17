@@ -5,6 +5,7 @@
 :func parser: launch parser
 """
 
+import os
 import logging
 from selenium import webdriver
 from selenium.webdriver import Keys
@@ -12,6 +13,7 @@ from selenium.webdriver.common.by import By
 from parse_sub_functions import parse_el
 
 
+BROWSER_NAME = 'yandexdriver.exe'
 module_logger = logging.getLogger("parserApp.parse_main_functions")
 
 
@@ -87,7 +89,8 @@ def beta_parser(url: str, file_name: str) -> None:
     logger.debug("Start session with a browser.")
     options = webdriver.ChromeOptions()
     # options.headless = True  # this is hide your browser
-    binary_yandex_driver_file = r'D:\Python Projects\RedditParser\yandexdriver.exe'  # path to YandexDriver
+    project_location = os.path.split(__file__)[0]
+    binary_yandex_driver_file = project_location + r'\\' + BROWSER_NAME  # path to YandexDriver
     driver = webdriver.Chrome(binary_yandex_driver_file, options=options)
     driver.maximize_window()
 
@@ -130,7 +133,8 @@ def parser(url: str, file_name: str, num_posts: int) -> None:
 
     options = webdriver.ChromeOptions()
     # options.add_argument("--headless")
-    binary_yandex_driver_file = r'D:\Python Projects\RedditParser\yandexdriver.exe'  # path to YandexDriver
+    project_location = os.path.split(__file__)[0]
+    binary_yandex_driver_file = project_location + r'\\' + BROWSER_NAME  # path to YandexDriver
     driver = webdriver.Chrome(binary_yandex_driver_file, options=options)
     driver.maximize_window()
 
