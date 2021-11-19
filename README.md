@@ -1,20 +1,34 @@
+# Reddit top month parser
 
-# What is this program about.
+This program is a Python application for parsing top posts during the month from the reddit.com
 
-The program aimed on the parsing process over the 100 posts from https://www.reddit.com/top/?t=month. 
-Posts that have no necessary data are ignored. Furthermore the program also ignores posts with deleted 
-users or an age constraint.
+## Installation
 
-# How to use this program.
+Clone the repository from GitHub. Then create a virtual environment, and install all the dependencies.
 
-1. Create an empty folder for this project 
-2. Make a 'git init' command to initialize a repository 
-3. Make a 'git clone https://github.com/DvMaxim/TopMonthRedditParser.git -b working' command
-4. Use CMD or just open the cloned folder in your favorite IDE and set up launch configuration
-5. Make these command to get all external libs that are used in this program:
-    - pip install selenium
-    - pip install requests
-    - pip install bs4
-6. Run project and enjoy
+```bash
+git clone git clone https://github.com/DvMaxim/TopMonthRedditParser.git -b working
+python -m venv env
+env\Scripts\activate.bat
+python -m pip install -r requirements.txt
+```
+
+## Usage
+
+Initialize the virtual environment, and run the script
+
+```bash
+env\Scripts\activate.bat
+python main.py
+  or:
+python main.py -p_n <posts number> -f_n <result file name>
+  or:
+python main.py --file_name <posts number> -f_n <result file name>
+```
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
 
 
