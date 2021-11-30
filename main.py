@@ -7,8 +7,37 @@
 
 import time
 import os
+import argparse
 import logging
 from parse_main_functions import parser
+
+
+def get_args_from_the_cmd():
+    """Get optional arguments from the command line.
+
+    :return: a tuple of the arguments
+    """
+    parser = argparse.ArgumentParser(description='Posts number / result file name')
+
+    parser.add_argument('-p_n', '--posts_number'
+                        , metavar='posts_number'
+                        , type=int
+                        , help='Get a number of the posts which we need to parse.'
+                        , default=100
+                        , dest='posts_num'
+                        , required=False)
+
+    parser.add_argument('-f_n', '--file_name'
+                        , metavar='result_file_name'
+                        , type=str
+                        , help='A name of the result file of the program.'
+                        , default=get_current_filename()
+                        , dest='res_file_name'
+                        , required=False
+                        )
+
+    args = parser.parse_args()
+    return args.posts_num, args.res_file_name
 
 
 def get_current_filename() -> str:
@@ -29,13 +58,11 @@ def get_current_filename() -> str:
 
 
 URL = 'https://www.reddit.com/top/?t=month'
-NUM_POSTS = 100
 
 
 def main() -> None:
     """Run main application's functions."""
-    file_name = get_current_filename()
-
+    num_posts, file_name = get_args_from_the_cmd()
     if not os.path.isdir("logging_data"):
         os.mkdir("logging_data")
 
@@ -54,7 +81,7 @@ def main() -> None:
     logger.info("Program started.")
     file = open(file_name, 'w')
     file.close()
-    parser(URL, file_name, NUM_POSTS)
+    parser(URL, file_name, num_posts)
     logger.info("Program finished.")
 
 
