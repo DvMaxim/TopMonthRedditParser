@@ -55,8 +55,10 @@ def parse_el(el, file_name: str, driver) -> bool:
         logger.error("No post link, impossible to continue parsing process.")
         return False
     post_link = post_link.get('href')
-    logger.debug("Post link: %s." % post_link)
-    parse_list.append(post_link)
+    encoded_post_link = post_link.encode("utf-8")
+
+    logger.debug("Post link: %s." % encoded_post_link)
+    parse_list.append(encoded_post_link)
 
     user = el_soup.find('a', {"class": ["_2tbHP6ZydRpjI44J3syuqC", "_23wugcdiaj44hdfugIAlnX", "oQctV4n0yUb0uiHDdGnmE"]})
     if not user:
@@ -131,6 +133,8 @@ def parse_el(el, file_name: str, driver) -> bool:
     post_category = post_category.replace('/', '')
     logger.debug("Post category: %s.\n" % post_category)
     parse_list.append(post_category)
+
+    parse_list = [str(el) if not isinstance(el, str) else el for el in parse_list]
 
     parse_str = ' | '.join(parse_list)
 
