@@ -1,10 +1,11 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 
-host_name = "127.0.0.1"
-server_port = 8087
-
-
+HOST_NAME = "127.0.0.1"
+SEREVER_PORT = 8087
+FULL_HOST_ADDRESS = 'http://localhost:8087'
+LEN_FULL_HOST_ADRS = len(FULL_HOST_ADDRESS)
+last_res_file = ''
 
 
 class MyServerRequestHandler(BaseHTTPRequestHandler):
@@ -16,7 +17,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     def parse_result_file(self, file_name):
         with open(file_name, "r") as file:
             posts_list = file.readlines()
-        posts_dict = {(str(i), el.split(" | ")) for i, el in enumerate(posts_list, 1)}
+        posts_dict = {str(i): el.split(" | ") for i, el in enumerate(posts_list, 1)}
         res_dict = {}
         for (key, value) in posts_dict.items():
             value_gen = (el for el in value)
@@ -37,23 +38,41 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
         return res_dict
 
+    def handle_unique_id_request(self, posts_dict):
+        post_id = self.path.replace('/posts/', '')
+        necessary_post = {}
+        for post in posts_dict.values():
+            if post['unique_id'] == post_id:
+                necessary_post = post.copy()
+        if len(necessary_post) == 0:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b'Sorry, but there is no necessary post. Please, choose another one.')
+        else:
+            self.send_response(200)
+            self.end_headers()
+            json_posts_dict = json.dumps(necessary_post)
+            self.wfile.write(bytes(json_posts_dict, "utf-8"))
+
     def do_GET(self):
-        if self.path != '/posts' and not self.path.startswith('/posts/'):
+        if not self.path.startswith('/posts'):
             self.send_response(404)
             self.end_headers()
             self.wfile.write(b"Server cannot handle unknown request. Please use only appropriate.")
         else:
-            if self.is_result_file_valuable:
-                posts_dict = self.parse_result_file(self.res_file_name)
-                if self.path == '/posts':
+            try:
+                file = open(last_res_file)
+                file.close()
+                posts_dict = self.parse_result_file(last_res_file)
+                if self.path == '/posts' or self.path == '/posts/':
                     self.send_response(200)
                     self.end_headers()
                     json_posts_dict = json.dumps(posts_dict)
                     self.wfile.write(bytes(json_posts_dict, "utf-8"))
+                else:
+                    self.handle_unique_id_request(posts_dict)
 
-                elif self.path.startswith('/posts/'):
-                    pass
-            else:
+            except IOError as e:
                 self.send_response(404)
                 self.end_headers()
                 self.wfile.write(b'There is no file source to store you data. '
@@ -67,9 +86,12 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             res_file_name = data['file_name']
             file = open(res_file_name, 'w')
             file.close()
+            global last_res_file
+            last_res_file = res_file_name
             self.send_response(200)
             self.end_headers()
-        elif self.path == '/posts':
+
+        elif self.path == '/posts' or self.path == '/posts/':
             res_file_name = data.pop('file_name')
             try:
                 file = open(res_file_name)
@@ -100,15 +122,30 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         # self.wfile.write(bytes(myjson, "utf-8"))
 
     def do_DELETE(self):
-        pass
+        if not self.path.startswith('/posts/'):
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"Server cannot handle unknown request. Please use only appropriate.")
+        else:
+            try:
+                file = open(last_res_file)
+                file.close()
+                posts_dict = self.parse_result_file(last_res_file)
+                self.handle_unique_id_request(posts_dict)
+
+            except IOError as e:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b'There is no file source to store you data. '
+                                 b'Please, send necessary request to create a such source.')
 
     def do_PUT(self):
         pass
 
 
 if __name__ == "__main__":
-    web_server = HTTPServer((host_name, server_port), MyServerRequestHandler)
-    print("Server started http://%s:%s" % (host_name, server_port))
+    web_server = HTTPServer((HOST_NAME, SEREVER_PORT), MyServerRequestHandler)
+    print("Server started http://%s:%s" % (HOST_NAME, SEREVER_PORT))
 
     try:
         web_server.serve_forever()
