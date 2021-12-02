@@ -4,12 +4,18 @@
 :func main: run main application's functions.
 """
 
-
+import json
 import time
 import os
 import argparse
 import logging
+import requests
 from parse_main_functions import parser
+
+
+URL = 'https://www.reddit.com/top/?t=month'
+
+FILENAME_RESOURCE_URI = 'http://localhost:8087/filename'
 
 
 def get_args_from_the_cmd():
@@ -57,14 +63,10 @@ def get_current_filename() -> str:
     return 'reddit-' + ''.join(time_list) + '.txt'
 
 
-URL = 'https://www.reddit.com/top/?t=month'
-
-
 def main() -> None:
     """Run main application's functions."""
+
     num_posts, file_name = get_args_from_the_cmd()
-    if not os.path.isdir("logging_data"):
-        os.mkdir("logging_data")
 
     logger = logging.getLogger("parserApp")
     logger.setLevel(logging.DEBUG)
@@ -78,9 +80,30 @@ def main() -> None:
     # add handler to logger object
     logger.addHandler(fh)
 
+    response = requests.post(FILENAME_RESOURCE_URI, json={
+        'file_name': file_name
+    })
+
+    if not os.path.isdir("logging_data"):
+        os.mkdir("logging_data")
+
     logger.info("Program started.")
-    file = open(file_name, 'w')
-    file.close()
+
+    if response.status_code == 200:
+        logger.debug(f"Result file {file_name} has been created successfully.")
+    elif response.status_code == 404:
+        logger.debug(f"Error during creation result file {file_name}.")
+    # print(response.content)
+    # print(response.text)
+    # print("It's json loads response: ", json.loads(response.text))
+    # print(type(response.text))
+    # print(type(json.loads(response.text)))
+    # response = requests.get(resource_url)
+    # print(response.content)
+
+    # file = open(file_name, 'w')
+    # file.close()
+
     parser(URL, file_name, num_posts)
     logger.info("Program finished.")
 
