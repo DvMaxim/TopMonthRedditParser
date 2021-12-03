@@ -9,10 +9,6 @@ last_res_file = ''
 
 class MyServerRequestHandler(BaseHTTPRequestHandler):
 
-    # def __init__(self, request, client_address, server):
-    #     super().__init__(request, client_address, server)
-    #
-
     def get_posts_num(self, file_name):
         with open(file_name, "r") as file:
             posts_list = file.readlines()
@@ -57,39 +53,26 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if not self.path.startswith('/posts'):
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"Server cannot handle unknown request. Please use only appropriate.")
+            self.unknown_request_error()
         else:
             try:
-                file = open(last_res_file)
-                file.close()
-                posts_dict = self.parse_result_file(last_res_file)
+                posts_dict, post_id, necessary_post = self.work_with_file(last_res_file)
                 if self.path == '/posts' or self.path == '/posts/':
                     self.send_response(200)
                     self.end_headers()
                     json_posts_dict = json.dumps(posts_dict)
                     self.wfile.write(bytes(json_posts_dict, "utf-8"))
                 else:
-                    post_id = self.path.replace('/posts/', '')
-                    if post_id.endswith('/'):
-                        post_id = post_id.replace('/', '')
-                    necessary_post = self.get_necessary_post(posts_dict, post_id)
                     if necessary_post is not None:
                         self.send_response(200)
                         self.end_headers()
                         json_posts_dict = json.dumps(necessary_post)
                         self.wfile.write(bytes(json_posts_dict, "utf-8"))
                     else:
-                        self.send_response(404)
-                        self.end_headers()
-                        self.wfile.write(b'Sorry, but there is no necessary post. Please, choose another one.')
+                        self.show_no_necessary_post()
 
             except IOError as e:
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b'There is no file source to store you data. '
-                                 b'Please, send necessary request to create a such source.')
+                self.show_no_file_source_error()
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
@@ -105,22 +88,19 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
         elif self.path == '/posts' or self.path == '/posts/':
-            res_file_name = data.pop('file_name')
+            #res_file_name = data.pop('file_name')
             try:
-                file = open(res_file_name)
+                file = open(last_res_file)
                 file.close()
                 post_id = data['Unique_id']
-                posts_dict = self.parse_result_file(res_file_name)
+                posts_dict = self.parse_result_file(last_res_file)
                 if posts_dict is not None:
                     necessary_post = self.get_necessary_post(posts_dict, post_id)
                     if necessary_post is None:
-                        posts_count = self.get_posts_num(res_file_name)
+                        posts_count = self.get_posts_num(last_res_file)
                         new_post_num = posts_count + 1
                     else:
-                        self.send_response(404)
-                        self.end_headers()
-                        self.wfile.write(b'Impossible to store the post which already exists on the source. '
-                                         b'Please, try to send request with another post.')
+                        self.post_is_already_exists()
                         return
                 else:
                     new_post_num = 1
@@ -134,24 +114,16 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                 json_posts_dict = json.dumps({post_id: new_post_num})
                 self.wfile.write(bytes(json_posts_dict, "utf-8"))
 
-
-
             except IOError as e:
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b'There is no file source to store you data. '
-                                 b'Please, send necessary request to create a such source.')
+                self.show_no_file_source_error()
         else:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"Server cannot handle unknown request. Please use only appropriate.")
+            self.unknown_request_error()
 
     def write_posts_in_file(self, file_name, posts_dict):
         file = open(file_name, "w")
         for post in posts_dict.values():
             parse_str = ' | '.join(post.values())
             file.write(parse_str)
-            #file.write('\n')
         file.close()
 
     def do_DELETE(self):
@@ -188,8 +160,61 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(b'There is no file source to store you data. '
                                  b'Please, send necessary request to create a such source.')
 
+    def work_with_file(self, file_name):
+        file = open(last_res_file)
+        file.close()
+        posts_dict = self.parse_result_file(last_res_file)
+        post_id = self.path.replace('/posts/', '')
+        if post_id.endswith('/'):
+            post_id = post_id.replace('/', '')
+        necessary_post = self.get_necessary_post(posts_dict, post_id)
+        return posts_dict, post_id, necessary_post
+
     def do_PUT(self):
-        pass
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
+        data = json.loads(body)
+        if not self.path.startswith('/posts/'):
+            self.unknown_request_error()
+        else:
+            try:
+                posts_dict, post_id, necessary_post = self.work_with_file(last_res_file)
+                if necessary_post is not None:
+
+                    for key, value in dict(posts_dict).items():
+                        if value['unique_id'] == post_id:
+                            posts_dict[key] = data
+                        self.write_posts_in_file(last_res_file, posts_dict)
+
+                    self.send_response(200)
+                    self.end_headers()
+                else:
+                    self.show_no_necessary_post()
+
+            except IOError as e:
+                self.show_no_file_source_error()
+
+    def show_no_file_source_error(self):
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b'There is no file source to store you data. '
+                         b'Please, send necessary request to create a such source.')
+
+    def show_no_necessary_post(self):
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b'Sorry, but there is no necessary post. Please, choose another one.')
+
+    def unknown_request_error(self):
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Server cannot handle unknown request. Please use only appropriate.")
+
+    def post_is_already_exists(self):
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b'Impossible to store the post which already exists on the source. '
+                         b'Please, try to send request with another post.')
 
 
 if __name__ == "__main__":
