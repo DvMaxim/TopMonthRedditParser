@@ -5,7 +5,7 @@
 :func parse_post_date: look through the post page and get post date
 :func is_user_html_a_warning: check the correctness of the page where we need to come
 """
-import json
+
 import logging
 import uuid
 import requests
@@ -23,7 +23,7 @@ HEADERS = {
 HOST = 'https://www.reddit.com'
 # General web address of the source that we need to work with
 
-POSTS_RESOURCE_URI = 'http://localhost:8087/posts'
+POSTS_RESOURCE_URL = 'http://localhost:8087/posts'
 
 module_logger = logging.getLogger("parserApp.parse_sub_functions")
 
@@ -54,7 +54,7 @@ def parse_el(el, file_name: str, driver) -> bool:
     unique_id = uuid.uuid1().hex
     logger.debug("Unique_id: %s." % unique_id)
 
-    parse_dict['Unique_id'] = unique_id
+    parse_dict['unique_id'] = unique_id
     # parse_list.append(unique_id)
 
     post_link = el_soup.find('a', class_='_3jOxDPIQ0KaOWpzvSQo-1s')
@@ -66,7 +66,7 @@ def parse_el(el, file_name: str, driver) -> bool:
 
     logger.debug("Post link: %s." % encoded_post_link)
 
-    parse_dict['Post_link'] = str(encoded_post_link)
+    parse_dict['post_link'] = str(encoded_post_link)
     # parse_list.append(encoded_post_link)
 
     user = el_soup.find('a', {"class": ["_2tbHP6ZydRpjI44J3syuqC", "_23wugcdiaj44hdfugIAlnX", "oQctV4n0yUb0uiHDdGnmE"]})
@@ -158,7 +158,7 @@ def parse_el(el, file_name: str, driver) -> bool:
 
     parse_dict['post_category'] = post_category
 
-    parse_dict['file_name'] = file_name
+    #parse_dict['file_name'] = file_name
     # parse_list.append(post_category)
 
     #parse_list = [str(el) if not isinstance(el, str) else el for el in parse_list]
@@ -167,7 +167,7 @@ def parse_el(el, file_name: str, driver) -> bool:
 
     #parse_str = ' | '.join(parse_list)
 
-    response = requests.post(POSTS_RESOURCE_URI, json=parse_dict)
+    response = requests.post(POSTS_RESOURCE_URL, json=parse_dict)
     # with open(file_name, "a") as file:
     #     file.write(parse_str)
     #     file.write('\n')

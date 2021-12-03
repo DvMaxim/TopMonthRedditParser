@@ -15,7 +15,7 @@ from parse_main_functions import parser
 
 URL = 'https://www.reddit.com/top/?t=month'
 
-FILENAME_RESOURCE_URI = 'http://localhost:8087/filename'
+FILENAME_RESOURCE_URL = 'http://localhost:8087/filename'
 
 
 def get_args_from_the_cmd():
@@ -80,7 +80,7 @@ def main() -> None:
     # add handler to logger object
     logger.addHandler(fh)
 
-    response = requests.post(FILENAME_RESOURCE_URI, json={
+    response = requests.post(FILENAME_RESOURCE_URL, json={
         'file_name': file_name
     })
 
