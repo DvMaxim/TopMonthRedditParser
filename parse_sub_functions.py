@@ -168,7 +168,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     #parse_str = ' | '.join(parse_list)
 
     response = requests.post(POSTS_RESOURCE_URI, json=parse_dict)
-
     # with open(file_name, "a") as file:
     #     file.write(parse_str)
     #     file.write('\n')
