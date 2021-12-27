@@ -45,8 +45,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.info("Begin parsing process over the post element.\n\n")
 
     elem_source = el.get_attribute('innerHTML')
-
-    # parse_list = []
     parse_dict = {}
 
     el_soup = BeautifulSoup(elem_source, 'html.parser')
@@ -55,7 +53,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("Unique_id: %s." % unique_id)
 
     parse_dict['unique_id'] = unique_id
-    # parse_list.append(unique_id)
 
     post_link = el_soup.find('a', class_='_3jOxDPIQ0KaOWpzvSQo-1s')
     if not post_link:
@@ -67,7 +64,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("Post link: %s." % encoded_post_link)
 
     parse_dict['post_link'] = str(encoded_post_link)
-    # parse_list.append(encoded_post_link)
 
     user = el_soup.find('a', {"class": ["_2tbHP6ZydRpjI44J3syuqC", "_23wugcdiaj44hdfugIAlnX", "oQctV4n0yUb0uiHDdGnmE"]})
     if not user:
@@ -78,7 +74,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("Username: %s." % username)
 
     parse_dict['username'] = username
-    # parse_list.append(username)
 
     link_second_part = user.get('href')
     user_link = HOST + link_second_part
@@ -100,7 +95,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("User karma: %s." % user_karma)
 
     parse_dict['user_karma'] = user_karma
-    # parse_list.append(user_karma)
 
     user_cake_day = user_soup.find('span', {"id": "profile--id-card--highlight-tooltip--cakeday"})
     if not user_cake_day:
@@ -110,7 +104,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("User cake day: %s." % user_cake_day)
 
     parse_dict['user_cake_day'] = user_cake_day
-    # parse_list.append(user_cake_day)
 
     post_karma, comment_karma = parse_karma(driver, user_link)
 
@@ -118,15 +111,13 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("Comment karma: %s." % comment_karma)
 
     parse_dict['post_karma'] = post_karma
-    # parse_list.append(post_karma)
+
     parse_dict['comment_karma'] = comment_karma
-    # parse_list.append(comment_karma)
 
     post_date = parse_post_date(driver, post_link)
     logger.debug("Post date: %s." % post_date)
 
     parse_dict['post_date'] = post_date
-    # parse_list.append(post_date)
 
     number_of_comments = el_soup.find('span', class_='FHCV02u6Cp2zYL0fhQPsO')
     if not number_of_comments:
@@ -136,7 +127,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("Number of comments: %s." % number_of_comments)
 
     parse_dict['number_of_comments'] = number_of_comments
-    # parse_list.append(number_of_comments)
 
     number_of_votes = el_soup.find('div', {"class": ["_1rZYMD_4xY3gRcSS3p8ODO", "_3a2ZHWaih05DgAOtvu6cIo"]})
     if not number_of_votes:
@@ -146,7 +136,6 @@ def parse_el(el, file_name: str, driver) -> bool:
     logger.debug("Number of votes: %s." % number_of_votes)
 
     parse_dict['number_of_votes'] = number_of_votes
-    # parse_list.append(number_of_votes)
 
     post_category = el_soup.find('a', class_='_3ryJoIoycVkA88fy40qNJc')
     if not post_category:
@@ -158,19 +147,7 @@ def parse_el(el, file_name: str, driver) -> bool:
 
     parse_dict['post_category'] = post_category
 
-    #parse_dict['file_name'] = file_name
-    # parse_list.append(post_category)
-
-    #parse_list = [str(el) if not isinstance(el, str) else el for el in parse_list]
-
-    #parse_dict = {(key, str(value)) if not isinstance(value, str) else (key, value) for (key, value) in parse_dict }
-
-    #parse_str = ' | '.join(parse_list)
-
     response = requests.post(POSTS_RESOURCE_URL, json=parse_dict)
-    # with open(file_name, "a") as file:
-    #     file.write(parse_str)
-    #     file.write('\n')
 
     logger.info("Parsing process over the post element finish successfully.\n\n")
 

@@ -4,7 +4,6 @@
 :func main: run main application's functions.
 """
 
-import json
 import time
 import os
 import argparse
@@ -93,16 +92,6 @@ def main() -> None:
         logger.debug(f"Result file {file_name} has been created successfully.")
     elif response.status_code == 404:
         logger.debug(f"Error during creation result file {file_name}.")
-    # print(response.content)
-    # print(response.text)
-    # print("It's json loads response: ", json.loads(response.text))
-    # print(type(response.text))
-    # print(type(json.loads(response.text)))
-    # response = requests.get(resource_url)
-    # print(response.content)
-
-    # file = open(file_name, 'w')
-    # file.close()
 
     parser(URL, file_name, num_posts)
     logger.info("Program finished.")
