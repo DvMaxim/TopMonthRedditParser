@@ -6,7 +6,7 @@ import json
 HOST_NAME = "127.0.0.1"
 SERVER_PORT = 8087
 
-last_res_file = ''
+curr_launch_time = ''
 
 
 class MyServerRequestHandler(BaseHTTPRequestHandler):
@@ -132,7 +132,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             else:
                 return None
         else:
-            return last_res_file
+            return curr_launch_time
 
     def write_posts_in_file(self, file_name: str, posts_dict: dict):
         """Write all of the posts in the necessary file.
@@ -171,7 +171,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             path, params_dict = self.separate_path(path)
             curr_file_name = self.parse_query_file_name(params_dict)
         else:
-            curr_file_name = last_res_file
+            curr_file_name = curr_launch_time
         return curr_file_name, path
 
     def do_GET(self):
@@ -217,7 +217,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers['Content-Length'])
         body = self.rfile.read(content_length)
         data = json.loads(body)
-        global last_res_file
+        global curr_launch_time
         path = self.path
         if path == '/filename':
             res_file_name = data['file_name']

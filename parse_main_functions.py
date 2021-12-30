@@ -17,7 +17,7 @@ BROWSER_NAME = 'yandexdriver.exe'
 module_logger = logging.getLogger("parserApp.parse_main_functions")
 
 
-def filter_post_list(post_list: list, file_name: str,
+def filter_post_list(post_list: list,
                      driver, corr_len: str, max_posts_count: int,
                      start_index: int = 0) -> (int, list):
     """Filter the list of posts.
@@ -31,8 +31,6 @@ def filter_post_list(post_list: list, file_name: str,
 
         :param post_list: the list of posts that we need to filter
         :type: list of selenium web-elements
-        :param file_name: name of the result text file with all data about all parsed posts
-        :type: str
         :param driver: the browser object
         :type: selenium.webdriver.chrome.webdriver.WebDriver
         :param corr_len: number of corrects posts
@@ -54,7 +52,7 @@ def filter_post_list(post_list: list, file_name: str,
         el_index = post_list.index(el)
         if corr_len < max_posts_count:
             logger.debug("Try to parse current post element with the %d index in the posts list.\n" % el_index)
-            if not parse_el(post_list[el_index], file_name, driver):
+            if not parse_el(post_list[el_index], driver):
                 post_list.remove(el)
                 logger.debug(
                     "Element with %d index was removed from the posts list because it was not correct." % el_index)
@@ -68,7 +66,7 @@ def filter_post_list(post_list: list, file_name: str,
     return corr_len, post_list
 
 
-def beta_parser(url: str, file_name: str) -> None:
+def beta_parser(url: str) -> None:
     """Test parsing process.
 
         This is a small version of the parser function where
@@ -78,8 +76,6 @@ def beta_parser(url: str, file_name: str) -> None:
         cause it aims only for testing and improving our parsing algorithms.
 
         :param url: web-source to parse
-        :type: str
-        :param file_name: name of the result text file with all data about all parsed posts
         :type: str
         :return: None
         :rtype: None
@@ -98,7 +94,7 @@ def beta_parser(url: str, file_name: str) -> None:
         driver.get(url)
         initial_posts = driver.find_elements(By.CLASS_NAME, 'Post')
         logger.debug("Testing a parsing process on the single post element.")
-        if parse_el(initial_posts[0], file_name, driver):
+        if parse_el(initial_posts[0], driver):
             logger.debug("Parser has successfully finished.")
         else:
             logger.error("Error during the parsing process.")
@@ -111,7 +107,7 @@ def beta_parser(url: str, file_name: str) -> None:
         driver.quit()
 
 
-def parser(url: str, file_name: str, num_posts: int) -> None:
+def parser(url: str, num_posts: int) -> None:
     """Launch parser.
 
     Create a browser, load first 100 elements and try
@@ -119,8 +115,6 @@ def parser(url: str, file_name: str, num_posts: int) -> None:
     new one's and reproduce this cycle until you get 100 relevant posts.
 
     :param url: web-source to parse
-    :type: str
-    :param file_name: name of the result text file with all data about all parsed posts
     :type: str
     :param num_posts: number of posts that we need to parse
     :type: int
@@ -145,9 +139,6 @@ def parser(url: str, file_name: str, num_posts: int) -> None:
         if not initial_posts:
             message = 'Impossible to parse because number of post on the page is 0.'
             logger.error("%s" % message)
-            with open(file_name, "w") as file:
-                file.write(message)
-                file.write('\n')
             return
         logger.debug("Page is available. Start parsing process.")
         is_first_filter = True
@@ -161,12 +152,12 @@ def parser(url: str, file_name: str, num_posts: int) -> None:
             if len_list >= num_posts:
                 if is_first_filter:
                     logger.debug("Produce first time parsing process from the beginning of the current post list.")
-                    corr_len, filtered_posts = filter_post_list(initial_posts, file_name, driver, corr_len, num_posts)
+                    corr_len, filtered_posts = filter_post_list(initial_posts, driver, corr_len, num_posts)
                     is_first_filter = False
                 else:
                     logger.debug(f"Produce parsing process from the {new_filter_start} position from the current "
                                  f"posts list.")
-                    corr_len, filtered_posts = filter_post_list(initial_posts, file_name, driver, corr_len, num_posts,
+                    corr_len, filtered_posts = filter_post_list(initial_posts, driver, corr_len, num_posts,
                                                                 new_filter_start)
                 logger.debug("Correct posts list length after filtering %d" % corr_len)
                 correct_posts_list.extend(filtered_posts)
