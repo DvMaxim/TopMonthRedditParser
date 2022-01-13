@@ -1,9 +1,9 @@
-"""The module for HTTP server which works with parser client."""
+"""The module for HTTP server which works with parser client and MongoDB."""
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pymongo import MongoClient
 import json
 import time
+from pymongo import MongoClient
 
 HOST_NAME = "127.0.0.1"
 SERVER_PORT = 8087
@@ -63,6 +63,12 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             return None
 
     def find_query_parameter(self, param_name: str, params_dict: dict):
+        """Find necessary query parameter in the params dict
+
+        :param param_name: necessary param name
+        :param params_dict: dictionary with parameters
+        :return: param value if it's in the params dict and None value if it's not
+        """
         if params_dict is not None:
             if param_name in params_dict:
                 param_value = params_dict[param_name]
@@ -72,10 +78,10 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         return None
 
     def get_query_params(self, path: str):
-        """Get file name from query parameters.
+        """Divide full path for params and simple path.
 
         :param path: a full resource path
-        :return: a tuple of the current file name and simple resource path
+        :return: a tuple of the simple path and params dict
         """
         params_dict = None
         if self.separate_path(path):
@@ -83,7 +89,11 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         return path, params_dict
 
     def store_db_data(self, data):
+        """Store data to the database.
 
+        :param data: data to store
+        :return: boolean flag which show if the storing process was successful or not
+        """
         is_data_stored = False
 
         try:
@@ -125,19 +135,72 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
         return is_data_stored
 
-    # def send_all_posts(self):
-    #     self.send_response(200)
-    #     self.end_headers()
-    #     json_posts_dict = json.dumps(posts_dict)
-    #     self.wfile.write(bytes(json_posts_dict, "utf-8"))
+    def send_posts(self, necessary_posts):
+        """Send posts to the client.
+
+        :param necessary_posts: posts to send
+        :return: None
+        """
+        response_dict = {}
+
+        if isinstance(necessary_posts, dict):
+            response_dict = self.join_collections(necessary_posts)
+        else:
+
+            posts_count = 1
+
+            necessary_posts_generator = (post for post in necessary_posts)
+
+            while True:
+                try:
+                    curr_post = next(necessary_posts_generator)
+                    joined_dict = self.join_collections(curr_post)
+                    response_dict[str(posts_count)] = joined_dict
+                    posts_count += 1
+                except StopIteration as e:
+                    break
+                except Exception as e:
+                    print("Exception in send_posts_func: ", str(e))
+                    break
+
+        self.send_response(200)
+        self.end_headers()
+        json_posts_dict = json.dumps(response_dict)
+        self.wfile.write(bytes(json_posts_dict, "utf-8"))
+
+    def join_collections(self, necessary_post):
+        """Join data from the different collections of the post to a one dict
+
+        :param necessary_post:
+        :return: dict with post data
+        """
+        response_dict = necessary_post.copy()
+
+        user_id = response_dict.pop('user_id')
+        post_id = response_dict.pop('post_id')
+
+        user_dict = user_coll.find_one({'_id': user_id})
+        del user_dict['_id']
+
+        user_karma_id = user_dict.pop('user_karma')
+
+        user_karma_dict = user_karma_coll.find_one({'_id': user_karma_id})
+        del user_karma_dict['_id']
+
+        post_dict = post_coll.find_one({'_id': post_id})
+        del post_dict['_id']
+
+        response_dict.update(user_dict)
+        response_dict.update(user_karma_dict)
+        response_dict.update(post_dict)
+
+        return response_dict
 
     def do_GET(self):
         """Handle GET requests.
 
-        Receive all posts' content from the necessary source file if there is no
-        unique identifier determined. Otherwise receive content from the post
-        with such special id. Moreover checks a full resource path for a file_name
-        query parameter. If it presents it will become a current resource file.
+        Receives all posts' content from the database. Moreover if there is
+        a special post its data will be received by the client.
         """
         path = self.path
         if not path.startswith('/posts'):
@@ -155,6 +218,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                     self.send_posts(necessary_post)
                 else:
                     self.show_no_necessary_post()
+                    return
 
             else:
                 necessary_posts = user_post_info_coll.find()
@@ -163,11 +227,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         """Handle POST requests.
 
-        Adds a new post to the source file. If there is no file - creates a new one.
-        Checks the contents of the file for duplicates by the UNIQUE_ID field before
-        adding the new post. Returns the operation code 201 and a JSON in special format.
-        Moreover checks a full resource path for a file_name query parameter. If it presents
-        it will become a current resource file.
+        Adds a new post to the database. Check for existing one's before adding.
         """
         content_length = int(self.headers['Content-Length'])
         body = self.rfile.read(content_length)
@@ -211,46 +271,32 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             json_posts_dict = json.dumps({post_id: new_post_num})
             self.wfile.write(bytes(json_posts_dict, "utf-8"))
 
-    # def do_DELETE(self):
-    #         """Handle DELETE requests.
-    #
-    #         Deletes the post with the special unique identifier from the file.
-    #         Moreover checks a full resource path for a file_name query parameter. If it presents
-    #         it will become a current resource file.
-    #         """
-    #         path = self.path
-    #         if not path.startswith('/posts'):
-    #             self.show_unknown_request_error()
-    #         else:
-    #             path, params_dict = self.get_query_params(path)
-    #
-    #             if params_dict is None:
-    #                 self.show_no_post_id_error()
-    #                 return
-    #             else:
-    #
-    #                 posts_dict = {}
-    #
-    #                 post_id = self.find_query_parameter("post_id")
-    #
-    #                 if post_id is not None:
-    #
-    #                     # parse db to the dict
-    #                     posts_dict = self.parse_result_file(file_name)
-    #
-    #                     necessary_post = self.get_necessary_post(posts_dict, post_id)
-    #
-    #                     if necessary_post is not None:
-    #
-    #                         # delete row from the db
-    #
-    #                         self.send_response(200)
-    #                         self.end_headers()
-    #
-    #                     else:
-    #                         self.show_no_necessary_post()
-    #                 else:
-    #                     self.show_no_post_id_error()
+    def do_DELETE(self):
+            """Handle DELETE requests.
+
+            Delete post with special id from the database.
+            """
+            path = self.path
+            if not path.startswith('/posts'):
+                self.show_unknown_request_error()
+            else:
+                path, params_dict = self.get_query_params(path)
+
+                post_id = self.find_query_parameter("post_id", params_dict)
+
+                if params_dict is not None and post_id is not None:
+
+                    necessary_post = user_post_info_coll.find_one({'_id': post_id})
+
+                    if necessary_post is not None:
+                        self.send_posts(necessary_post)
+                    else:
+                        self.show_no_necessary_post()
+                        return
+
+                else:
+                    self.show_no_post_id_error()
+                    return
 
     def do_PUT(self):
         """Handle PUT requests.
@@ -336,58 +382,6 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Sorry but there is no such data in the current data set. "
                          b"Please use only appropriate data set structures.")
-
-    def send_posts(self, necessary_posts):
-
-        response_dict = {}
-
-        if isinstance(necessary_posts, dict):
-            response_dict = self.join_collections(necessary_posts)
-        else:
-
-            posts_count = 1
-
-            necessary_posts_generator = (post for post in necessary_posts)
-
-            while True:
-                try:
-                    curr_post = next(necessary_posts_generator)
-                    joined_dict = self.join_collections(curr_post)
-                    response_dict[str(posts_count)] = joined_dict
-                    posts_count += 1
-                except StopIteration as e:
-                    break
-                except Exception as e:
-                    print("Exception in send_posts_func: ", str(e))
-                    break
-
-        self.send_response(200)
-        self.end_headers()
-        json_posts_dict = json.dumps(response_dict)
-        self.wfile.write(bytes(json_posts_dict, "utf-8"))
-
-    def join_collections(self, necessary_post):
-        response_dict = necessary_post.copy()
-
-        user_id = response_dict.pop('user_id')
-        post_id = response_dict.pop('post_id')
-
-        user_dict = user_coll.find_one({'_id': user_id})
-        del user_dict['_id']
-
-        user_karma_id = user_dict.pop('user_karma')
-
-        user_karma_dict = user_karma_coll.find_one({'_id': user_karma_id})
-        del user_karma_dict['_id']
-
-        post_dict = post_coll.find_one({'_id': post_id})
-        del post_dict['_id']
-
-        response_dict.update(user_dict)
-        response_dict.update(user_karma_dict)
-        response_dict.update(post_dict)
-
-        return response_dict
 
 
 if __name__ == "__main__":
