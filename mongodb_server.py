@@ -84,8 +84,10 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
     def store_db_data(self, data):
 
-        # create user_karma collection
+        is_data_stored = False
+
         try:
+            # create user_karma collection
 
             user_karma = {}
             user_karma["post_karma"] = data.get("post_karma")
@@ -110,13 +112,18 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
             # create user_post_info collection
             user_post_info = {}
-            user_post_info["_id"] = data.get("unique_id")
+            user_post_info["_id"] = data.get('unique_id', data.get('_id', None))
             user_post_info["user_id"] = result_user.inserted_id
             user_post_info["post_id"] = result_post.inserted_id
             user_post_info["time_of_processing"] = self.get_current_launch_time()
             result_user_post_info = user_post_info_coll.insert_one(user_post_info)
-        except KeyError as e:
 
+            is_data_stored = True
+
+        except KeyError as e:
+            self.show_no_necessary_attr()
+
+        return is_data_stored
 
     # def send_all_posts(self):
     #     self.send_response(200)
@@ -170,12 +177,10 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             self.show_unknown_request_error()
         else:
 
-            post_id = data.pop('unique_id',
-                               data.pop('_id', None)
-                               )
+            post_id = data.get('unique_id', data.get('_id', None))
 
             if post_id is None:
-                self.show_no_post_id_error()
+                self.show_no_necessary_attr()
                 return
 
             if "user_post_info" not in db.list_collection_names():
@@ -195,7 +200,11 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                     return
 
             # add data in db
-            self.store_db_data(data)
+
+            is_data_stored = self.store_db_data(data)
+
+            if not is_data_stored:
+                return
 
             self.send_response(201)
             self.end_headers()
