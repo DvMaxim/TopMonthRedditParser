@@ -63,13 +63,13 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             return None
 
     def find_query_parameter(self, param_name: str, params_dict: dict):
-        if param_name in params_dict:
-            param_value = params_dict[param_name]
-            if param_value.endswith('/'):
-                param_value = param_value.replace('/', '')
-            return param_value
-        else:
-            None
+        if params_dict is not None:
+            if param_name in params_dict:
+                param_value = params_dict[param_name]
+                if param_value.endswith('/'):
+                    param_value = param_value.replace('/', '')
+                return param_value
+        return None
 
     def get_query_params(self, path: str):
         """Get file name from query parameters.
@@ -85,35 +85,38 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     def store_db_data(self, data):
 
         # create user_karma collection
+        try:
 
-        user_karma = {}
-        user_karma["post_karma"] = data.get("post_karma")
-        user_karma["comment_karma"] = data.get("comment_karma")
-        user_karma["general_user_karma"] = data.get("user_karma")
-        result_user_karma = user_karma_coll.insert_one(user_karma)
+            user_karma = {}
+            user_karma["post_karma"] = data.get("post_karma")
+            user_karma["comment_karma"] = data.get("comment_karma")
+            user_karma["general_user_karma"] = data.get("user_karma")
+            result_user_karma = user_karma_coll.insert_one(user_karma)
 
-        # create user collection
-        user = {}
-        user["user_name"] = data.get("username")
-        user["user_cake_day"] = data.get("user_cake_day")
-        user["user_karma"] = result_user_karma.inserted_id
-        result_user = user_coll.insert_one(user)
+            # create user collection
+            user = {}
+            user["user_name"] = data.get("username")
+            user["user_cake_day"] = data.get("user_cake_day")
+            user["user_karma"] = result_user_karma.inserted_id
+            result_user = user_coll.insert_one(user)
 
-        # create post collection
-        post = {}
-        post["post_date"] = data.get("post_date")
-        post["number_of_comments"] = data.get("number_of_comments")
-        post["number_of_votes"] = data.get("number_of_votes")
-        post["post_category"] = data.get("post_category")
-        result_post = post_coll.insert_one(post)
+            # create post collection
+            post = {}
+            post["post_date"] = data.get("post_date")
+            post["number_of_comments"] = data.get("number_of_comments")
+            post["number_of_votes"] = data.get("number_of_votes")
+            post["post_category"] = data.get("post_category")
+            result_post = post_coll.insert_one(post)
 
-        # create user_post_info collection
-        user_post_info = {}
-        user_post_info["_id"] = data.get("unique_id")
-        user_post_info["user_id"] = result_user.inserted_id
-        user_post_info["post_id"] = result_post.inserted_id
-        user_post_info["time_of_processing"] = self.get_current_launch_time()
-        result_user_post_info = user_post_info_coll.insert_one(user_post_info)
+            # create user_post_info collection
+            user_post_info = {}
+            user_post_info["_id"] = data.get("unique_id")
+            user_post_info["user_id"] = result_user.inserted_id
+            user_post_info["post_id"] = result_post.inserted_id
+            user_post_info["time_of_processing"] = self.get_current_launch_time()
+            result_user_post_info = user_post_info_coll.insert_one(user_post_info)
+        except KeyError as e:
+
 
     # def send_all_posts(self):
     #     self.send_response(200)
@@ -135,31 +138,20 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         else:
             path, params_dict = self.get_query_params(path)
 
-            # if params_dict is not None:
-            #
-            #     post_id = self.find_query_parameter("post_id")
-            #
-            #     if post_id is not None:
-            #
-            #         necessary_post = self.db.user_post_info.find({'_id': post_id})
-            #
-            #         # add joins between collections for one post (document)
-            #
-            #         if necessary_post is not None:
-            #             self.send_response(200)
-            #             self.end_headers()
-            #             json_posts_dict = json.dumps(necessary_post)
-            #             self.wfile.write(bytes(json_posts_dict, "utf-8"))
-            #         else:
-            #             self.show_no_necessary_post()
-            #     else:
-            #         self.send_all_posts(posts_dict)
+            post_id = self.find_query_parameter("post_id", params_dict)
 
-            # else:
-            #
-            #     #transform send_all_posts function
-            #
-            #     self.send_all_posts()
+            if params_dict is not None and post_id is not None:
+
+                necessary_post = user_post_info_coll.find_one({'_id': post_id})
+
+                if necessary_post is not None:
+                    self.send_posts(necessary_post)
+                else:
+                    self.show_no_necessary_post()
+
+            else:
+                necessary_posts = user_post_info_coll.find()
+                self.send_posts(necessary_posts)
 
     def do_POST(self):
         """Handle POST requests.
@@ -174,13 +166,17 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length)
         data = json.loads(body)
 
-        path = self.path
-
-        if not path.startswith('/posts'):
+        if not self.path.startswith('/posts'):
             self.show_unknown_request_error()
         else:
 
-            post_id = data['unique_id']
+            post_id = data.pop('unique_id',
+                               data.pop('_id', None)
+                               )
+
+            if post_id is None:
+                self.show_no_post_id_error()
+                return
 
             if "user_post_info" not in db.list_collection_names():
                 new_post_num = 0
@@ -322,8 +318,67 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         """Send error respond when there is unknown request occurs."""
         self.send_response(404)
         self.end_headers()
-        self.wfile.write(b"Sorry, but server cannot work with empty post id value. "
+        self.wfile.write(b"Sorry but server cannot work with empty post id value. "
                          b"Please use only appropriate ones.")
+
+    def show_no_necessary_attr(self):
+        """Send error respond when there is no necessary attribute in the data dict."""
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Sorry but there is no such data in the current data set. "
+                         b"Please use only appropriate data set structures.")
+
+    def send_posts(self, necessary_posts):
+
+        response_dict = {}
+
+        if isinstance(necessary_posts, dict):
+            response_dict = self.join_collections(necessary_posts)
+        else:
+
+            posts_count = 1
+
+            necessary_posts_generator = (post for post in necessary_posts)
+
+            while True:
+                try:
+                    curr_post = next(necessary_posts_generator)
+                    joined_dict = self.join_collections(curr_post)
+                    response_dict[str(posts_count)] = joined_dict
+                    posts_count += 1
+                except StopIteration as e:
+                    break
+                except Exception as e:
+                    print("Exception in send_posts_func: ", str(e))
+                    break
+
+        self.send_response(200)
+        self.end_headers()
+        json_posts_dict = json.dumps(response_dict)
+        self.wfile.write(bytes(json_posts_dict, "utf-8"))
+
+    def join_collections(self, necessary_post):
+        response_dict = necessary_post.copy()
+
+        user_id = response_dict.pop('user_id')
+        post_id = response_dict.pop('post_id')
+
+        user_dict = user_coll.find_one({'_id': user_id})
+        del user_dict['_id']
+
+        user_karma_id = user_dict.pop('user_karma')
+
+        user_karma_dict = user_karma_coll.find_one({'_id': user_karma_id})
+        del user_karma_dict['_id']
+
+        post_dict = post_coll.find_one({'_id': post_id})
+        del post_dict['_id']
+
+        response_dict.update(user_dict)
+        response_dict.update(user_karma_dict)
+        response_dict.update(post_dict)
+
+        return response_dict
 
 
 if __name__ == "__main__":
