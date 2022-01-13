@@ -272,76 +272,64 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(bytes(json_posts_dict, "utf-8"))
 
     def do_DELETE(self):
-            """Handle DELETE requests.
+        """Handle DELETE requests.
 
-            Delete post with special id from the database.
-            """
-            path = self.path
-            if not path.startswith('/posts'):
-                self.show_unknown_request_error()
-            else:
-                path, params_dict = self.get_query_params(path)
-
-                post_id = self.find_query_parameter("post_id", params_dict)
-
-                if params_dict is not None and post_id is not None:
-
-                    necessary_post = user_post_info_coll.find_one({'_id': post_id})
-
-                    if necessary_post is not None:
-                        self.send_posts(necessary_post)
-                    else:
-                        self.show_no_necessary_post()
-                        return
-
-                else:
-                    self.show_no_post_id_error()
-                    return
-
-    def do_PUT(self):
-        """Handle PUT requests.
-
-        Change post from the file source on a necessary one with the special unique identifier.
-        Moreover checks a full resource path for a file_name query parameter. If it presents
-        it will become a current resource file.
+        Delete post with special id from the database.
         """
-        content_length = int(self.headers['Content-Length'])
-        body = self.rfile.read(content_length)
-        data = json.loads(body)
         path = self.path
         if not path.startswith('/posts'):
             self.show_unknown_request_error()
         else:
-
             path, params_dict = self.get_query_params(path)
 
-            if params_dict is None:
+            post_id = self.find_query_parameter("post_id", params_dict)
+
+            if params_dict is not None and post_id is not None:
+
+                necessary_post = user_post_info_coll.find_one({'_id': post_id})
+
+                if necessary_post is not None:
+                    user_dict = user_coll.find_one({'_id': necessary_post['user_id']})
+                    user_karma_coll.delete_one({'_id': user_dict['user_karma']})
+                    user_coll.delete_one({'_id': necessary_post['user_id']})
+                    post_coll.delete_one({'_id': necessary_post['post_id']})
+                    user_post_info_coll.delete_one({'_id': post_id})
+                    self.send_response(200)
+                    self.end_headers()
+                else:
+                    self.show_no_necessary_post()
+                    return
+
+            else:
                 self.show_no_post_id_error()
                 return
+
+    def do_PUT(self):
+        """Handle PUT requests.
+
+        Change a post with the special id for a new one.
+        """
+        path = self.path
+        if not path.startswith('/posts'):
+            self.show_unknown_request_error()
+        else:
+            path, params_dict = self.get_query_params(path)
+
+            post_id = self.find_query_parameter("post_id", params_dict)
+
+            if params_dict is not None and post_id is not None:
+
+                necessary_post = user_post_info_coll.find_one({'_id': post_id})
+
+                if necessary_post is not None:
+                    pass
+                else:
+                    self.show_no_necessary_post()
+                    return
+
             else:
-
-                posts_dict = {}
-
-                post_id = self.find_query_parameter("post_id")
-
-                # if post_id is not None:
-                #
-                #     # parse db to the dict
-                #     posts_dict = self.parse_result_file(file_name)
-                #
-                #     necessary_post = self.get_necessary_post(posts_dict, post_id)
-                #
-                #     if necessary_post is not None:
-                #
-                #         # put a new row to the db
-                #
-                #         self.send_response(200)
-                #         self.end_headers()
-                #
-                #     else:
-                #         self.show_no_necessary_post()
-                # else:
-                #     self.show_no_post_id_error()
+                self.show_no_post_id_error()
+                return
 
     def show_no_file_source_error(self):
         """Send error respond when there is no source file for storing data."""
