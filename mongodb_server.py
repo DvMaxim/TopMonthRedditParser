@@ -15,15 +15,15 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
     Methods:
 
-    get_posts_num(self, file_name: str): Get posts count.
-    parse_result_file(self, file_name: str): Get dictionary of all the posts.
-    get_necessary_post(self, posts_dict: dict, post_id: str): Receive necessary post.
     separate_path(self, path: str): Separate current resource path.
-    is_source_file_valuable(self, file_name: str): Check the source file for a possibility to work.
-    parse_query_file_name(self, params_dict: dict): Parse the file name.
-    write_posts_in_file(self, file_name: str, posts_dict: dict): Write all of the posts in the file.
-    work_with_file(self, file_name: str, path: str): Process a necessary file.
-    get_query_file_name(self, path: str): Get file name from query parameters.
+    def get_current_launch_time(self): Calculate a launch time of the current input query session.
+    def find_query_parameter(self, param_name: str, params_dict: dict): Find necessary query parameter in the params
+                                                                        dict.
+    def get_query_params(self, path: str): Divide full path for params and simple path.
+    def parse_data(self, data): Parse incoming data according to the collection in the database.
+    def save_the_post(self, data): Store data to the database.
+    def send_posts(self, necessary_posts): Send posts to the client.
+    def join_collections(self, necessary_post): Join data from the different collections of the post to a one dict.
     do_GET(self): Handle GET requests.
     do_POST(self): Handle POST requests.
     do_DELETE(self): Handle DELETE requests.
@@ -32,6 +32,8 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     show_no_necessary_post(self): Send error respond - no necessary post to work with.
     show_unknown_request_error(self): Send error respond - unknown request occurs.
     show_post_is_already_exists(self): Send error respond - the necessary post is already exists.
+    def show_no_post_id_error(self): Send error respond when there is unknown request occurs.
+    def show_no_necessary_attr(self): Send error respond when there is no necessary attribute in the data dict.
     """
 
     def get_current_launch_time(self) -> str:
@@ -63,7 +65,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             return None
 
     def find_query_parameter(self, param_name: str, params_dict: dict):
-        """Find necessary query parameter in the params dict
+        """Find necessary query parameter in the params dict.
 
         :param param_name: necessary param name
         :param params_dict: dictionary with parameters
@@ -88,52 +90,86 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             path, params_dict = self.separate_path(path)
         return path, params_dict
 
-    def store_db_data(self, data):
-        """Store data to the database.
+    def parse_data(self, data: dict) -> dict:
+        """Parse incoming data according to the collection in the database.
 
-        :param data: data to store
-        :return: boolean flag which show if the storing process was successful or not
+        :param data: data to parse
+        :return: a dict of dicts with collections data
         """
-        is_data_stored = False
 
         try:
+
             # create user_karma collection
 
             user_karma = {}
             user_karma["post_karma"] = data.get("post_karma")
             user_karma["comment_karma"] = data.get("comment_karma")
-            user_karma["general_user_karma"] = data.get("user_karma")
-            result_user_karma = user_karma_coll.insert_one(user_karma)
+            user_karma["general_user_karma"] = data.get("general_user_karma")
 
             # create user collection
+
             user = {}
-            user["user_name"] = data.get("username")
+            user["user_name"] = data.get("user_name")
             user["user_cake_day"] = data.get("user_cake_day")
-            user["user_karma"] = result_user_karma.inserted_id
-            result_user = user_coll.insert_one(user)
 
             # create post collection
+
             post = {}
             post["post_date"] = data.get("post_date")
             post["number_of_comments"] = data.get("number_of_comments")
             post["number_of_votes"] = data.get("number_of_votes")
             post["post_category"] = data.get("post_category")
-            result_post = post_coll.insert_one(post)
 
             # create user_post_info collection
-            user_post_info = {}
-            user_post_info["_id"] = data.get('unique_id', data.get('_id', None))
-            user_post_info["user_id"] = result_user.inserted_id
-            user_post_info["post_id"] = result_post.inserted_id
-            user_post_info["time_of_processing"] = self.get_current_launch_time()
-            result_user_post_info = user_post_info_coll.insert_one(user_post_info)
 
-            is_data_stored = True
+            user_post_info = {}
+
+            if "_id" in data or 'unique_id' in data:
+                user_post_info["_id"] = data.get('unique_id', data.get('_id'))
+
+            user_post_info["time_of_processing"] = self.get_current_launch_time()
+
+            result_dict = {}
+            result_dict['user_karma'] = user_karma
+            result_dict['user'] = user
+            result_dict['post'] = post
+            result_dict['user_post_info'] = user_post_info
+
+            return result_dict
 
         except KeyError as e:
             self.show_no_necessary_attr()
+            return None
 
-        return is_data_stored
+    def save_the_post(self, data: dict) -> bool:
+        """Store data to the database.
+
+        :param data: data to store
+        :return: boolean flag which show if the storing process was successful or not
+        """
+
+        is_post_saved = False
+
+        collection_data = self.parse_data(data)
+
+        if collection_data is None:
+            return is_post_saved
+
+        result_user_karma = user_karma_coll.insert_one(collection_data['user_karma'])
+
+        collection_data['user']["user_karma"] = result_user_karma.inserted_id
+        result_user = user_coll.insert_one(collection_data['user'])
+
+        result_post = post_coll.insert_one(collection_data['post'])
+
+        collection_data['user_post_info']["user_id"] = result_user.inserted_id
+        collection_data['user_post_info']["post_id"] = result_post.inserted_id
+
+        result_user_post_info = user_post_info_coll.insert_one(collection_data['user_post_info'])
+
+        is_post_saved = True
+
+        return is_post_saved
 
     def send_posts(self, necessary_posts):
         """Send posts to the client.
@@ -168,10 +204,10 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         json_posts_dict = json.dumps(response_dict)
         self.wfile.write(bytes(json_posts_dict, "utf-8"))
 
-    def join_collections(self, necessary_post):
+    def join_collections(self, necessary_post: dict) -> dict:
         """Join data from the different collections of the post to a one dict
 
-        :param necessary_post:
+        :param necessary_post: post to join
         :return: dict with post data
         """
         response_dict = necessary_post.copy()
@@ -261,7 +297,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
             # add data in db
 
-            is_data_stored = self.store_db_data(data)
+            is_data_stored = self.save_the_post(data)
 
             if not is_data_stored:
                 return
@@ -309,6 +345,9 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
         Change a post with the special id for a new one.
         """
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
+        data = json.loads(body)
         path = self.path
         if not path.startswith('/posts'):
             self.show_unknown_request_error()
@@ -317,12 +356,38 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
             post_id = self.find_query_parameter("post_id", params_dict)
 
-            if params_dict is not None and post_id is not None:
+            if post_id is not None:
 
                 necessary_post = user_post_info_coll.find_one({'_id': post_id})
 
                 if necessary_post is not None:
-                    pass
+
+                    collection_data = self.parse_data(data)
+
+                    user_dict = user_coll.find_one({'_id': necessary_post['user_id']})
+
+                    user_karma_coll.update_one({'_id': user_dict['user_karma']},
+                                               {'$set': collection_data['user_karma']},
+                                               upsert=False)
+                    user_coll.update_one({'_id': necessary_post['user_id']}, {'$set': collection_data['user']},
+                                         upsert=False)
+                    post_coll.update_one({'_id': necessary_post['post_id']}, {'$set': collection_data['post']},
+                                         upsert=False)
+                    send_message = False
+                    id = collection_data['user_post_info'].pop("_id", None)
+                    if id is not None:
+                        send_message = True
+
+                    user_post_info_coll.update_one({'_id': post_id}, {'$set': collection_data['user_post_info']},
+                                                   upsert=False)
+
+                    self.send_response(200)
+                    self.end_headers()
+                    if send_message:
+                        self.wfile.write(b'Success !\n\nNotes:\n\n- Impossible to change post id value so it was just '
+                                         b'skipped.\n'
+                                         b'- Other attributes were updated successfully.')
+
                 else:
                     self.show_no_necessary_post()
                     return
@@ -387,27 +452,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         web_server.server_close()
         print("Server stopped.")
-
-# from random import randint
-#
-# # Step 1: Connect to MongoDB - Note: Change connection string as needed
-# client = MongoClient(port=27017)
-# db = client.business
-# # Step 2: Create sample data
-# names = ['Kitchen', 'Animal', 'State', 'Tastey', 'Big', 'City', 'Fish', 'Pizza', 'Goat', 'Salty', 'Sandwich', 'Lazy',
-#          'Fun']
-# company_type = ['LLC', 'Inc', 'Company', 'Corporation']
-# company_cuisine = ['Pizza', 'Bar Food', 'Fast Food', 'Italian', 'Mexican', 'American', 'Sushi Bar', 'Vegetarian']
-# for x in range(1, 501):
-#     business = {
-#         'name': names[randint(0, (len(names) - 1))] + ' ' + names[randint(0, (len(names) - 1))] + ' ' + company_type[
-#             randint(0, (len(company_type) - 1))],
-#         'rating': randint(1, 5),
-#         'cuisine': company_cuisine[randint(0, (len(company_cuisine) - 1))]
-#     }
-#     # Step 3: Insert business object directly into MongoDB via insert_one
-#     result = db.reviews.insert_one(business)
-#     # Step 4: Print to the console the ObjectID of the new document
-#     print('Created {0} of 500 as {1}'.format(x, result.inserted_id))
-# # Step 5: Tell us that you are done
-# print('finished creating 500 business reviews')
