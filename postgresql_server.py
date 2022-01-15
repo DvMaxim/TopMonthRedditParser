@@ -1,17 +1,14 @@
-"""The module for HTTP server which works with parser client and PostgreSQL."""
+"""The module for HTTP server which works with parser client and PostgreSQL.
+
+:func create_db: Create database.
+"""
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import time
 import psycopg2
 from psycopg2 import Error
-
-USER = "postgres"
-PASSWORD = "5432112345"
-HOST = "127.0.0.1"
-DB_PORT = "5432"
-BASE_DB = "postgres"
-LOCAL_SERVER_PORT = 8087
+from configuration import HOST, LOCAL_SERVER_PORT, USER, PASSWORD, DB_PORT, BASE_DB
 
 
 class MyServerRequestHandler(BaseHTTPRequestHandler):
@@ -39,7 +36,6 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     show_post_is_already_exists(self): Send error respond - the necessary post is already exists.
     show_no_post_id_error(self): Send error respond when there is unknown request occurs.
     show_no_necessary_attr(self): Send error respond when there is no necessary attribute in the data dict.
-    create_db(db_name): Create database.
     """
 
     def get_current_launch_time(self) -> str:

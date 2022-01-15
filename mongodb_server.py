@@ -4,10 +4,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import time
 from pymongo import MongoClient
-
-HOST_NAME = "127.0.0.1"
-SERVER_PORT = 8087
-MONGODB_SERVER_PORT = 27017
+from configuration import HOST, LOCAL_SERVER_PORT, MONGODB_SERVER_PORT
 
 
 class MyServerRequestHandler(BaseHTTPRequestHandler):
@@ -16,14 +13,14 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     Methods:
 
     separate_path(self, path: str): Separate current resource path.
-    def get_current_launch_time(self): Calculate a launch time of the current input query session.
-    def find_query_parameter(self, param_name: str, params_dict: dict): Find necessary query parameter in the params
+    get_current_launch_time(self): Calculate a launch time of the current input query session.
+    find_query_parameter(self, param_name: str, params_dict: dict): Find necessary query parameter in the params
                                                                         dict.
-    def get_query_params(self, path: str): Divide full path for params and simple path.
-    def parse_data(self, data): Parse incoming data according to the collection in the database.
-    def save_the_post(self, data): Store data to the database.
-    def send_posts(self, necessary_posts): Send posts to the client.
-    def join_collections(self, necessary_post): Join data from the different collections of the post to a one dict.
+    get_query_params(self, path: str): Divide full path for params and simple path.
+    parse_data(self, data): Parse incoming data according to the collection in the database.
+    save_the_post(self, data): Store data to the database.
+    send_posts(self, necessary_posts): Send posts to the client.
+    join_collections(self, necessary_post): Join data from the different collections of the post to a one dict.
     do_GET(self): Handle GET requests.
     do_POST(self): Handle POST requests.
     do_DELETE(self): Handle DELETE requests.
@@ -32,8 +29,8 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     show_no_necessary_post(self): Send error respond - no necessary post to work with.
     show_unknown_request_error(self): Send error respond - unknown request occurs.
     show_post_is_already_exists(self): Send error respond - the necessary post is already exists.
-    def show_no_post_id_error(self): Send error respond when there is unknown request occurs.
-    def show_no_necessary_attr(self): Send error respond when there is no necessary attribute in the data dict.
+    show_no_post_id_error(self): Send error respond when there is unknown request occurs.
+    show_no_necessary_attr(self): Send error respond when there is no necessary attribute in the data dict.
     """
 
     def get_current_launch_time(self) -> str:
@@ -438,14 +435,14 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    client = MongoClient(host=HOST_NAME, port=MONGODB_SERVER_PORT)
+    client = MongoClient(host=HOST, port=MONGODB_SERVER_PORT)
     db = client['reddit_parser']
     user_karma_coll = db["user_karma"]
     user_coll = db["user"]
     post_coll = db["post"]
     user_post_info_coll = db["user_post_info"]
-    web_server = HTTPServer((HOST_NAME, SERVER_PORT), MyServerRequestHandler)
-    print("Server started http://%s:%s" % (HOST_NAME, SERVER_PORT))
+    web_server = HTTPServer((HOST, LOCAL_SERVER_PORT), MyServerRequestHandler)
+    print("Server started http://%s:%s" % (HOST, LOCAL_SERVER_PORT))
 
     try:
         web_server.serve_forever()
