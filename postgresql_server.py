@@ -1,4 +1,7 @@
-"""The module for HTTP server which works with parser client and PostgreSQL."""
+"""The module for HTTP server which works with parser client and PostgreSQL.
+
+:func create_db: Create database.
+"""
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
@@ -9,7 +12,7 @@ from psycopg2 import Error
 USER = "postgres"
 PASSWORD = "5432112345"
 HOST = "127.0.0.1"
-PORT = "5432"
+DB_PORT = "5432"
 BASE_DB = "postgres"
 LOCAL_SERVER_PORT = 8087
 
@@ -20,24 +23,25 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
     Methods:
 
     separate_path(self, path: str): Separate current resource path.
-    def get_current_launch_time(self): Calculate a launch time of the current input query session.
-    def find_query_parameter(self, param_name: str, params_dict: dict): Find necessary query parameter in the params
+    get_current_launch_time(self): Calculate a launch time of the current input query session.
+    find_query_parameter(self, param_name: str, params_dict: dict): Find necessary query parameter in the params
                                                                         dict.
-    def get_query_params(self, path: str): Divide full path for params and simple path.
-    def parse_data(self, data): Parse incoming data according to the collection in the database.
-    def save_the_post(self, data): Store data to the database.
-    def send_posts(self, necessary_posts): Send posts to the client.
-    def join_collections(self, necessary_post): Join data from the different collections of the post to a one dict.
+    get_query_params(self, path: str): Divide full path for params and simple path.
+
+    save_the_post(self, data: dict) -> bool: Store data to the database.
+    send_posts(self, post_id=None): Send posts to the client.
+    get_necessary_post(self, table_name: str, post_id) -> tuple: Get the necessary post from the table with the id.
+    get_table_rows_count(self, table_name: str) -> int: Get count of the rows from the table.
     do_GET(self): Handle GET requests.
     do_POST(self): Handle POST requests.
     do_DELETE(self): Handle DELETE requests.
     do_PUT(self): Handle PUT requests.
-    show_no_file_source_error(self): Send error respond - no file source.
+    show_db_is_empty(self): Send error respond when there is no data in the database.
     show_no_necessary_post(self): Send error respond - no necessary post to work with.
     show_unknown_request_error(self): Send error respond - unknown request occurs.
     show_post_is_already_exists(self): Send error respond - the necessary post is already exists.
-    def show_no_post_id_error(self): Send error respond when there is unknown request occurs.
-    def show_no_necessary_attr(self): Send error respond when there is no necessary attribute in the data dict.
+    show_no_post_id_error(self): Send error respond when there is unknown request occurs.
+    show_no_necessary_attr(self): Send error respond when there is no necessary attribute in the data dict.
     """
 
     def get_current_launch_time(self) -> str:
@@ -167,8 +171,6 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             "INNER JOIN user_karma ON user_data.user_karma = user_karma.ID " \
             "INNER JOIN post ON user_post_info.post_id = post.ID"
 
-        # ""
-
         keys = (
             'id', 'time_of_processing', 'user_name', 'user_cake_day', 'post_karma', 'comment_karma',
             'general_user_karma', 'post_date', 'number_of_comments', 'number_of_votes', 'post_category'
@@ -196,11 +198,38 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                 else:
                     self.show_db_is_empty()
                     return
-        print(res_dict)
         self.send_response(200)
         self.end_headers()
         json_posts_dict = json.dumps(res_dict)
         self.wfile.write(bytes(json_posts_dict, "utf-8"))
+
+    def get_necessary_post(self, table_name: str, post_id) -> tuple:
+        """Get the necessary post from the table with the id.
+
+        :param table_name: table for getting post
+        :param post_id: id of the post to get
+        :return: the post
+        """
+        get_necessary_post_query = f"SELECT * FROM {table_name} WHERE ID = '{post_id}'"
+
+        with conn.cursor() as get_necessary_post_cursor:
+            get_necessary_post_cursor.execute(get_necessary_post_query)
+            return get_necessary_post_cursor.fetchone()
+
+    def get_table_rows_count(self, table_name: str) -> int:
+        """Get count of the rows from the table.
+
+        :param table_name: name of the table
+        :param post_id: the id of the post to search for
+        :return: a count value
+        """
+
+        get_posts_count_query = f"SELECT COUNT(*) as count FROM {table_name}"
+
+        with conn.cursor() as get_posts_count_cursor:
+            get_posts_count_cursor.execute(get_posts_count_query)
+            count = get_posts_count_cursor.fetchone()
+            return count[0]
 
     def do_GET(self):
         """Handle GET requests.
@@ -240,34 +269,22 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                 self.show_no_necessary_attr()
                 return
 
-            get_posts_count_query = "SELECT COUNT(*) as count FROM user_post_info"
-
-            with conn.cursor() as get_posts_count_cursor:
-                get_posts_count_cursor.execute(get_posts_count_query)
-                count = get_posts_count_cursor.fetchone()
-                count = count[0]
+            count = self.get_table_rows_count("user_post_info")
 
             if count == 0:
                 new_post_num = 1
 
             else:
 
-                get_necessary_post_query = f"SELECT * FROM user_post_info WHERE ID = '{post_id}'"
-
-                with conn.cursor() as get_necessary_post_cursor:
-                    get_necessary_post_cursor.execute(get_necessary_post_query)
-                    necessary_post = get_necessary_post_cursor.fetchone()
+                necessary_post = self.get_necessary_post('user_post_info', post_id)
 
                 if necessary_post is None:
 
-                    # get db elements count
                     new_post_num = count + 1
 
                 else:
                     self.show_post_is_already_exists()
                     return
-
-            # add data in db
 
             is_data_stored = self.save_the_post(data)
 
@@ -294,19 +311,15 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
             if params_dict is not None and post_id is not None:
 
-                get_necessary_post_query = f"SELECT * FROM user_post_info WHERE ID = '{post_id}'"
-
-                with conn.cursor() as get_necessary_post_cursor:
-                    get_necessary_post_cursor.execute(get_necessary_post_query)
-                    necessary_post = get_necessary_post_cursor.fetchone()
+                necessary_post = self.get_necessary_post('user_post_info', post_id)
 
                 if necessary_post is not None:
 
-                    get_user_data_query = f"SELECT * FROM user_data WHERE ID = '{necessary_post[1]}'"
+                    user_data_post = self.get_necessary_post('user_data', necessary_post[1])
 
-                    with conn.cursor() as get_user_data_cursor:
-                        get_user_data_cursor.execute(get_user_data_query)
-                        user_data_post = get_user_data_cursor.fetchone()
+                    if user_data_post is None:
+                        self.show_no_necessary_attr()
+                        return
 
                     delete_user_karma_query = f"DELETE FROM user_karma WHERE ID = '{user_data_post[3]}'"
                     delete_user_data_query = f"DELETE FROM user_data WHERE ID = '{necessary_post[1]}'"
@@ -321,6 +334,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
                     self.send_response(200)
                     self.end_headers()
+                    self.wfile.write(b'Success ! Selected post was deleted.')
                 else:
                     self.show_no_necessary_post()
                     return
@@ -347,35 +361,50 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
             if post_id is not None:
 
-                necessary_post = user_post_info_coll.find_one({'_id': post_id})
+                necessary_post = self.get_necessary_post('user_post_info', post_id)
 
                 if necessary_post is not None:
 
-                    collection_data = self.parse_data(data)
+                    user_data_post = self.get_necessary_post('user_data', necessary_post[1])
 
-                    user_dict = user_coll.find_one({'_id': necessary_post['user_id']})
+                    try:
+                        update_user_karma_query = f"UPDATE user_karma " \
+                                                  f"SET post_karma = '{data.get('post_karma')}'," \
+                                                  f"    comment_karma = '{data.get('comment_karma')}'," \
+                                                  f"    general_user_karma = '{data.get('general_user_karma')}' " \
+                                                  f"WHERE ID = '{user_data_post[3]}';"
 
-                    user_karma_coll.update_one({'_id': user_dict['user_karma']},
-                                               {'$set': collection_data['user_karma']},
-                                               upsert=False)
-                    user_coll.update_one({'_id': necessary_post['user_id']}, {'$set': collection_data['user']},
-                                         upsert=False)
-                    post_coll.update_one({'_id': necessary_post['post_id']}, {'$set': collection_data['post']},
-                                         upsert=False)
-                    send_message = False
-                    id = collection_data['user_post_info'].pop("_id", None)
-                    if id is not None:
-                        send_message = True
+                        update_user_data_query = f"UPDATE user_data " \
+                                                 f"SET user_name = '{data.get('user_name')}'," \
+                                                 f"    user_cake_day = '{data.get('user_cake_day')}' " \
+                                                 f"WHERE ID = '{necessary_post[1]}';"
 
-                    user_post_info_coll.update_one({'_id': post_id}, {'$set': collection_data['user_post_info']},
-                                                   upsert=False)
+                        update_post_query = f"    UPDATE post " \
+                                            f"SET post_date = '{data.get('post_date')}', " \
+                                            f"    number_of_comments = '{data.get('number_of_comments')}', " \
+                                            f"    number_of_votes = '{data.get('number_of_votes')}', " \
+                                            f"    post_category = '{data.get('post_category')}' " \
+                                            f"WHERE ID = '{necessary_post[2]}';"
 
-                    self.send_response(200)
-                    self.end_headers()
-                    if send_message:
-                        self.wfile.write(b'Success !\n\nNotes:\n\n- Impossible to change post id value so it was just '
-                                         b'skipped.\n'
-                                         b'- Other attributes were updated successfully.')
+                        update_user_post_info_query = f"UPDATE user_post_info " \
+                                                      f"SET    " \
+                                                      f"time_of_processing = '{data.get('time_of_processing')}' " \
+                                                      f"WHERE ID = '{post_id}';"
+
+                        with conn.cursor() as update_necessary_post_cursor:
+                            update_necessary_post_cursor.execute(update_user_karma_query)
+                            update_necessary_post_cursor.execute(update_user_data_query)
+                            update_necessary_post_cursor.execute(update_post_query)
+                            update_necessary_post_cursor.execute(update_user_post_info_query)
+
+                        self.send_response(200)
+                        self.end_headers()
+                        self.wfile.write(b'Success !\n\nNote:\n\n- Impossible to change post id value so it is just '
+                                         b'skipped automatically.')
+
+                    except KeyError as e:
+                        self.show_no_necessary_attr()
+                        return
 
                 else:
                     self.show_no_necessary_post()
@@ -436,7 +465,7 @@ def create_db(db_name):
         start_conn = psycopg2.connect(user=USER,
                                       password=PASSWORD,
                                       host=HOST,
-                                      port=PORT,
+                                      port=DB_PORT,
                                       database=BASE_DB)
 
         start_conn.autocommit = True
@@ -463,7 +492,7 @@ if __name__ == "__main__":
         conn = psycopg2.connect(user=USER,
                                 password=PASSWORD,
                                 host=HOST,
-                                port=PORT,
+                                port=DB_PORT,
                                 database=db_name)
 
         conn.autocommit = True
