@@ -150,72 +150,63 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
         finally:
             return is_post_saved
 
-    def send_posts(self, necessary_posts):
+    def send_posts(self, post_id=None):
         """Send posts to the client.
 
-        :param necessary_posts: posts to send
+        :param post_id: id of the post to send
         :return: None
         """
-        response_dict = {}
 
-        if isinstance(necessary_posts, dict):
-            response_dict = self.join_collections(necessary_posts)
+        get_all_posts_query = \
+            "SELECT " \
+            "user_post_info.ID, user_post_info.time_of_processing, " \
+            "user_data.user_name, user_data.user_cake_day, " \
+            "user_karma.post_karma, user_karma.comment_karma, user_karma.general_user_karma, " \
+            "post.post_date, post.number_of_comments, post.number_of_votes, post.post_category" \
+            " FROM user_post_info INNER JOIN user_data ON user_post_info.user_id = user_data.ID " \
+            "INNER JOIN user_karma ON user_data.user_karma = user_karma.ID " \
+            "INNER JOIN post ON user_post_info.post_id = post.ID"
+
+        # ""
+
+        keys = (
+            'id', 'time_of_processing', 'user_name', 'user_cake_day', 'post_karma', 'comment_karma',
+            'general_user_karma', 'post_date', 'number_of_comments', 'number_of_votes', 'post_category'
+        )
+
+        if post_id is not None:
+            get_necessary_post_query = get_all_posts_query + f" WHERE user_post_info.ID = '{post_id}';"
+
+            with conn.cursor() as get_necessary_post_cursor:
+                get_necessary_post_cursor.execute(get_necessary_post_query)
+                necessary_post = get_necessary_post_cursor.fetchone()
+                if necessary_post is not None:
+                    res_dict = dict(zip(keys, necessary_post))
+                else:
+                    self.show_no_necessary_post()
+                    return
         else:
+            get_all_posts_query += ";"
 
-            posts_count = 1
-
-            necessary_posts_generator = (post for post in necessary_posts)
-
-            while True:
-                try:
-                    curr_post = next(necessary_posts_generator)
-                    joined_dict = self.join_collections(curr_post)
-                    response_dict[str(posts_count)] = joined_dict
-                    posts_count += 1
-                except StopIteration as e:
-                    break
-                except Exception as e:
-                    print("Exception in send_posts_func: ", str(e))
-                    break
-
+            with conn.cursor() as get_all_posts_cursor:
+                get_all_posts_cursor.execute(get_all_posts_query)
+                posts = get_all_posts_cursor.fetchall()
+                if posts:
+                    res_dict = {i: dict(zip(keys, post)) for i, post in enumerate(posts, 1)}
+                else:
+                    self.show_db_is_empty()
+                    return
+        print(res_dict)
         self.send_response(200)
         self.end_headers()
-        json_posts_dict = json.dumps(response_dict)
+        json_posts_dict = json.dumps(res_dict)
         self.wfile.write(bytes(json_posts_dict, "utf-8"))
-
-    def join_collections(self, necessary_post: dict) -> dict:
-        """Join data from the different collections of the post to a one dict
-
-        :param necessary_post: post to join
-        :return: dict with post data
-        """
-        response_dict = necessary_post.copy()
-
-        user_id = response_dict.pop('user_id')
-        post_id = response_dict.pop('post_id')
-
-        user_dict = user_coll.find_one({'_id': user_id})
-        del user_dict['_id']
-
-        user_karma_id = user_dict.pop('user_karma')
-
-        user_karma_dict = user_karma_coll.find_one({'_id': user_karma_id})
-        del user_karma_dict['_id']
-
-        post_dict = post_coll.find_one({'_id': post_id})
-        del post_dict['_id']
-
-        response_dict.update(user_dict)
-        response_dict.update(user_karma_dict)
-        response_dict.update(post_dict)
-
-        return response_dict
 
     def do_GET(self):
         """Handle GET requests.
 
         Receives all posts' content from the database. Moreover if there is
-        a special post its data will be received by the client.
+        a special post with id its data will be received by the client.
         """
         path = self.path
         if not path.startswith('/posts'):
@@ -226,18 +217,9 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
             post_id = self.find_query_parameter("post_id", params_dict)
 
             if params_dict is not None and post_id is not None:
-
-                necessary_post = user_post_info_coll.find_one({'_id': post_id})
-
-                if necessary_post is not None:
-                    self.send_posts(necessary_post)
-                else:
-                    self.show_no_necessary_post()
-                    return
-
+                self.send_posts(post_id)
             else:
-                necessary_posts = user_post_info_coll.find()
-                self.send_posts(necessary_posts)
+                self.send_posts()
 
     def do_POST(self):
         """Handle POST requests.
@@ -270,7 +252,7 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
             else:
 
-                get_necessary_post_query = "SELECT * FROM user_post_info WHERE ID = " + post_id
+                get_necessary_post_query = f"SELECT * FROM user_post_info WHERE ID = '{post_id}'"
 
                 with conn.cursor() as get_necessary_post_cursor:
                     get_necessary_post_cursor.execute(get_necessary_post_query)
@@ -386,12 +368,11 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                 self.show_no_post_id_error()
                 return
 
-    def show_no_file_source_error(self):
-        """Send error respond when there is no source file for storing data."""
-        self.send_response(404)
+    def show_db_is_empty(self):
+        """Send error respond when there is no data in the database."""
+        self.send_response(200)
         self.end_headers()
-        self.wfile.write(b'There is no file source to store you data. '
-                         b'Please, send necessary request to create a such source.')
+        self.wfile.write(b'There is no data for show in the database.')
 
     def show_no_necessary_post(self):
         """Send error respond when there is no necessary post to work with."""
