@@ -294,14 +294,31 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
 
             if params_dict is not None and post_id is not None:
 
-                necessary_post = user_post_info_coll.find_one({'_id': post_id})
+                get_necessary_post_query = f"SELECT * FROM user_post_info WHERE ID = '{post_id}'"
+
+                with conn.cursor() as get_necessary_post_cursor:
+                    get_necessary_post_cursor.execute(get_necessary_post_query)
+                    necessary_post = get_necessary_post_cursor.fetchone()
 
                 if necessary_post is not None:
-                    user_dict = user_coll.find_one({'_id': necessary_post['user_id']})
-                    user_karma_coll.delete_one({'_id': user_dict['user_karma']})
-                    user_coll.delete_one({'_id': necessary_post['user_id']})
-                    post_coll.delete_one({'_id': necessary_post['post_id']})
-                    user_post_info_coll.delete_one({'_id': post_id})
+
+                    get_user_data_query = f"SELECT * FROM user_data WHERE ID = '{necessary_post[1]}'"
+
+                    with conn.cursor() as get_user_data_cursor:
+                        get_user_data_cursor.execute(get_user_data_query)
+                        user_data_post = get_user_data_cursor.fetchone()
+
+                    delete_user_karma_query = f"DELETE FROM user_karma WHERE ID = '{user_data_post[3]}'"
+                    delete_user_data_query = f"DELETE FROM user_data WHERE ID = '{necessary_post[1]}'"
+                    delete_post_query = f"DELETE FROM post WHERE ID = '{necessary_post[2]}'"
+                    delete_user_post_info_query = f"DELETE FROM user_post_info WHERE ID = '{post_id}'"
+
+                    with conn.cursor() as delete_necessary_post_cursor:
+                        delete_necessary_post_cursor.execute(delete_user_karma_query)
+                        delete_necessary_post_cursor.execute(delete_user_data_query)
+                        delete_necessary_post_cursor.execute(delete_post_query)
+                        delete_necessary_post_cursor.execute(delete_user_post_info_query)
+
                     self.send_response(200)
                     self.end_headers()
                 else:
