@@ -28,13 +28,11 @@ POSTS_RESOURCE_URL = 'http://localhost:8087/posts'
 module_logger = logging.getLogger("parserApp.parse_sub_functions")
 
 
-def parse_el(el, file_name: str, driver) -> bool:
+def parse_el(el, driver) -> bool:
     """Get necessary data about the current user.
 
     :param el: post element that we need to parse
     :type: selenium.webdriver.remote.webelement.WebElement
-    :param file_name: name of the result text file with all data about all parsed posts
-    :type: str
     :param driver: the browser object
     :type: selenium.webdriver.chrome.webdriver.WebDriver
     :return: True signal if post element parsed well and False signal if it wasn't
@@ -147,7 +145,7 @@ def parse_el(el, file_name: str, driver) -> bool:
 
     parse_dict['post_category'] = post_category
 
-    response = requests.post(POSTS_RESOURCE_URL, json=parse_dict)
+    requests.post(POSTS_RESOURCE_URL, json=parse_dict)
 
     logger.info("Parsing process over the post element finish successfully.\n\n")
 
