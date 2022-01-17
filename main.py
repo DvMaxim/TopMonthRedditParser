@@ -24,7 +24,7 @@ def get_args_from_the_cmd():
                         , metavar='posts_number'
                         , type=int
                         , help='Get a number of the posts which we need to parse.'
-                        , default=1
+                        , default=100
                         , dest='posts_num'
                         , required=False)
 
