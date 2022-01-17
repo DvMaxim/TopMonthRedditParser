@@ -4,10 +4,13 @@ This program is a Python application for handling requests from the parser clien
 
 ## Installation
 
-Clone the repository from GitHub. Then create a virtual environment, and install all the dependencies.
+Clone the repository from GitHub. To work with mongodb server use "mongodb_release_features" and to work with
+postgresql server use "postgresql_release_features".
+
+Then create a virtual environment, and install all the dependencies.
 
 ```bash
-git clone https://github.com/DvMaxim/TopMonthRedditParser.git -b major_release_features
+git clone https://github.com/DvMaxim/TopMonthRedditParser.git -b <NECESSARY_BRANCH_NAME>
 python -m venv env
 env\Scripts\activate.bat
 python -m pip install -r requirements.txt
