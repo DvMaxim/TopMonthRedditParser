@@ -107,16 +107,16 @@ class MyServerRequestHandler(BaseHTTPRequestHandler):
                 "INSERT INTO user_karma (post_karma, comment_karma, general_user_karma) VALUES " \
                 "(%s, %s, %s) RETURNING ID;"
 
-            records_to_insert = (data.get('post_karma'), data.get('comment_karma'), data.get('general_user_karma'))
+            records_to_insert = (data.get('post_karma'), data.get('comment_karma'), data.get('user_karma'))
 
             with conn.cursor() as save_data_user_karma_cursor:
                 save_data_user_karma_cursor.execute(save_data_user_karma_query, records_to_insert)
                 id_user_karma = save_data_user_karma_cursor.fetchone()[0]
 
-            save_data_user_query = " INSERT INTO user_data (user_name, user_cake_day, user_karma) VALUES (%s, %s, %s)" \
+            save_data_user_query = " INSERT INTO user_data (user_name, user_cake_day, user_karma) VALUES (%s, %s, %s) " \
                                    "RETURNING ID;"
 
-            records_to_insert = (data.get('user_name'), data.get('user_cake_day'), str(id_user_karma))
+            records_to_insert = (data.get('username'), data.get('user_cake_day'), str(id_user_karma))
 
             with conn.cursor() as save_data_user_cursor:
                 save_data_user_cursor.execute(save_data_user_query, records_to_insert)
